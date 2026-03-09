@@ -1,0 +1,171 @@
+#!/usr/bin/env bash
+#
+# git-claude - Git wrapper with automatic Claude Code chat syncing
+#
+# Usage:
+#   git-claude <any git command>
+#
+# Examples:
+#   git-claude checkout feature-auth  → switches branch + chat
+#   git-claude branch -b new-feature  → creates branch + inherits chat
+#   git-claude commit -m "msg"        → commits + saves chat
+#
+# Installation:
+#   1. Copy to /usr/local/bin/git-claude (or anywhere in PATH)
+#   2. chmod +x /usr/local/bin/git-claude
+#   3. Use: git-claude instead of git
+#   4. Optional alias: alias git='git-claude'
+
+set -e
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# Find git root
+get_git_root() {
+    git rev-parse --show-toplevel 2>/dev/null || echo ""
+}
+
+# Find sync script
+find_sync_script() {
+    local root=$(get_git_root)
+    if [ -z "$root" ]; then
+        return 1
+    fi
+
+    # Look for sync script
+    if [ -f "$root/src/git_sync.py" ]; then
+        echo "$root/src/git_sync.py"
+        return 0
+    fi
+
+    # Look in claude-git-sync directory
+    if [ -f "$HOME/Desktop/claude-git-sync/src/git_sync.py" ]; then
+        echo "$HOME/Desktop/claude-git-sync/src/git_sync.py"
+        return 0
+    fi
+
+    return 1
+}
+
+# Sync chat session
+sync_chat() {
+    local action=$1
+    local sync_script=$(find_sync_script)
+
+    if [ -z "$sync_script" ]; then
+        # No sync script, just skip silently
+        return 0
+    fi
+
+    # Run sync in background to not block Git
+    python3 "$sync_script" "$action" 2>/dev/null &
+}
+
+# Get current branch before operation
+BEFORE_BRANCH=$(git branch --show-current 2>/dev/null || echo "")
+
+# Extract the git command
+GIT_CMD="$1"
+shift
+
+# Execute the actual git command with all arguments
+case "$GIT_CMD" in
+    checkout|switch)
+        # Save current chat before switching
+        sync_chat "save"
+
+        # Run git command
+        git "$GIT_CMD" "$@"
+        GIT_EXIT_CODE=$?
+
+        if [ $GIT_EXIT_CODE -eq 0 ]; then
+            # Get new branch
+            AFTER_BRANCH=$(git branch --show-current 2>/dev/null || echo "")
+
+            # If branch changed, sync happened via post-checkout hook
+            if [ "$BEFORE_BRANCH" != "$AFTER_BRANCH" ] && [ -n "$AFTER_BRANCH" ]; then
+                # Hook already handled it, just notify
+                echo -e "${BLUE}💬 Chat synced to branch: $AFTER_BRANCH${NC}"
+            fi
+        fi
+
+        exit $GIT_EXIT_CODE
+        ;;
+
+    commit)
+        # Run git commit
+        git commit "$@"
+        GIT_EXIT_CODE=$?
+
+        if [ $GIT_EXIT_CODE -eq 0 ]; then
+            # Save chat after successful commit
+            sync_chat "save"
+            echo -e "${GREEN}💾 Chat session saved${NC}"
+        fi
+
+        exit $GIT_EXIT_CODE
+        ;;
+
+    branch)
+        # Check if creating new branch
+        CREATE_BRANCH=false
+        NEW_BRANCH=""
+
+        # Parse arguments to detect branch creation
+        while [[ $# -gt 0 ]]; do
+            case "$1" in
+                -b|--create)
+                    CREATE_BRANCH=true
+                    shift
+                    NEW_BRANCH="$1"
+                    break
+                    ;;
+                *)
+                    shift
+                    ;;
+            esac
+        done
+
+        # Run git command with original args
+        git "$GIT_CMD" "$@"
+        GIT_EXIT_CODE=$?
+
+        # If created a new branch with -b, initialize chat
+        if [ $GIT_EXIT_CODE -eq 0 ] && [ "$CREATE_BRANCH" = true ] && [ -n "$NEW_BRANCH" ]; then
+            sync_script=$(find_sync_script)
+            if [ -n "$sync_script" ]; then
+                python3 "$sync_script" "switch" "$NEW_BRANCH" 2>/dev/null
+                echo -e "${GREEN}💬 Chat context inherited from $BEFORE_BRANCH${NC}"
+            fi
+        fi
+
+        exit $GIT_EXIT_CODE
+        ;;
+
+    status)
+        # Run git status
+        git status "$@"
+        GIT_EXIT_CODE=$?
+
+        # Show chat sync status too
+        sync_script=$(find_sync_script)
+        if [ -n "$sync_script" ]; then
+            echo ""
+            echo -e "${BLUE}═══ Claude Code Chat Status ═══${NC}"
+            python3 "$sync_script" "status" 2>/dev/null | tail -n +4 | head -n 5
+        fi
+
+        exit $GIT_EXIT_CODE
+        ;;
+
+    *)
+        # All other git commands - just pass through
+        git "$GIT_CMD" "$@"
+        exit $?
+        ;;
+esac

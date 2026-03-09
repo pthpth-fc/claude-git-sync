@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# Git post-checkout hook - 100% automatic chat syncing
+# No manual commands needed!
+
+PREV_HEAD=$1
+NEW_HEAD=$2
+BRANCH_CHECKOUT=$3
+
+# Only run on branch checkout
+if [ "$BRANCH_CHECKOUT" != "1" ]; then
+  exit 0
+fi
+
+# Get repo root
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
+if [ -z "$REPO_ROOT" ]; then
+  exit 0
+fi
+
+# Find sync script
+SYNC_SCRIPT=""
+if [ -f "$REPO_ROOT/src/git_sync.py" ]; then
+  SYNC_SCRIPT="$REPO_ROOT/src/git_sync.py"
+elif [ -f "$HOME/Desktop/claude-git-sync/src/git_sync.py" ]; then
+  SYNC_SCRIPT="$HOME/Desktop/claude-git-sync/src/git_sync.py"
+fi
+
+if [ -z "$SYNC_SCRIPT" ]; then
+  exit 0
+fi
+
+# Run sync
+python3 "$SYNC_SCRIPT" auto 2>&1
+
+# Show friendly message
+NEW_BRANCH=$(git branch --show-current)
+echo ""
+echo "💬 Claude chat synced to: $NEW_BRANCH"
+echo ""

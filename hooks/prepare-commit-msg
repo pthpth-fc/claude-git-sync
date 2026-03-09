@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Git prepare-commit-msg hook
+# Auto-saves chat before commits
+
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
+if [ -z "$REPO_ROOT" ]; then
+  exit 0
+fi
+
+SYNC_SCRIPT=""
+if [ -f "$REPO_ROOT/src/git_sync.py" ]; then
+  SYNC_SCRIPT="$REPO_ROOT/src/git_sync.py"
+elif [ -f "$HOME/Desktop/claude-git-sync/src/git_sync.py" ]; then
+  SYNC_SCRIPT="$HOME/Desktop/claude-git-sync/src/git_sync.py"
+fi
+
+if [ -n "$SYNC_SCRIPT" ]; then
+  # Save in background
+  python3 "$SYNC_SCRIPT" save &>/dev/null &
+fi
+
+exit 0

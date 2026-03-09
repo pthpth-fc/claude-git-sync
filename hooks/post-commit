@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Git post-commit hook
+# Auto-saves chat state after commits
+
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
+if [ -z "$REPO_ROOT" ]; then
+  exit 0
+fi
+
+SYNC_SCRIPT="$REPO_ROOT/src/git_sync.py"
+if [ ! -f "$SYNC_SCRIPT" ]; then
+  exit 0
+fi
+
+# Save current session in background
+python3 "$SYNC_SCRIPT" save 2>&1 &

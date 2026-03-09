@@ -1,0 +1,30 @@
+{
+  "name": "claude-git-sync-hooks",
+  "description": "Hooks configuration for Claude Code to enable Git-Chat synchronization",
+  "hooks": {
+    "onToolCall": {
+      "description": "Detect Git branch switches via Bash tool",
+      "enabled": true,
+      "command": "bash",
+      "script": "hooks/claude-on-tool-call.sh"
+    },
+    "onSessionStart": {
+      "description": "Load chat state when Claude Code starts",
+      "enabled": true,
+      "command": "bash",
+      "script": "hooks/claude-on-session-start.sh"
+    },
+    "onUserPromptSubmit": {
+      "description": "Auto-save chat state after user messages",
+      "enabled": true,
+      "command": "bash",
+      "script": "hooks/claude-on-prompt.sh"
+    }
+  },
+  "settings": {
+    "autoSave": true,
+    "autoLoadOnBranchSwitch": true,
+    "inheritContext": true,
+    "verboseLogging": false
+  }
+}
