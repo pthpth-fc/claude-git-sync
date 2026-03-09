@@ -111,6 +111,7 @@ class GitClaudeSync:
         """Show current sync status"""
         current_branch = self.manager.get_current_branch()
         branches = self.manager.list_branches()
+        stashes = self.manager.list_stashes()
 
         print()
         print("╔════════════════════════════════════════════════════════╗")
@@ -146,8 +147,58 @@ class GitClaudeSync:
                     print(f"   Parent: {parent}")
                 print()
 
+        if stashes:
+            print("💾 Saved Stashes:")
+            print("─" * 60)
+            for stash_ref, info in sorted(stashes.items(),
+                                         key=lambda x: x[1].get('created', ''),
+                                         reverse=True):
+                print(f"  {stash_ref}")
+                print(f"   Branch: {info.get('branch', 'unknown')}")
+                print(f"   Messages: {info.get('messageCount', 0)}")
+                print(f"   Created: {info.get('created', 'unknown')[:19]}")
+                print()
+
         print("─" * 60)
         print()
+
+    def save_stash(self, stash_name: Optional[str] = None):
+        """Save chat context for a stash"""
+        print("💾 Saving chat context for stash...")
+        success = self.manager.save_stash_context(stash_name)
+        if success:
+            print("✓ Chat context saved with stash")
+        else:
+            print("⚠️  Could not save stash context")
+
+    def restore_stash(self, stash_ref: Optional[str] = None):
+        """Restore chat context from a stash"""
+        print("📚 Restoring chat context from stash...")
+        success = self.manager.restore_stash_context(stash_ref)
+        if not success:
+            print("⚠️  Could not restore stash context")
+
+    def list_stashes(self):
+        """List all stash contexts"""
+        stashes = self.manager.list_stashes()
+
+        if not stashes:
+            print("No stash contexts saved")
+            return
+
+        print()
+        print("💾 Saved Stash Contexts")
+        print("─" * 60)
+
+        for stash_ref, info in sorted(stashes.items(),
+                                     key=lambda x: x[1].get('created', ''),
+                                     reverse=True):
+            print(f"📦 {stash_ref}")
+            print(f"   Branch: {info.get('branch', 'unknown')}")
+            print(f"   Messages: {info.get('messageCount', 0)}")
+            print(f"   Created: {info.get('created', 'unknown')}")
+            print()
+        print("─" * 60)
 
     def auto_switch_handler(self):
         """Automatic handler for Git post-checkout hook"""
@@ -202,6 +253,17 @@ def main():
             # Called by Git hook
             sync.auto_switch_handler()
 
+        elif command == 'stash-save':
+            stash_name = args[0] if args else None
+            sync.save_stash(stash_name)
+
+        elif command == 'stash-restore':
+            stash_ref = args[0] if args else None
+            sync.restore_stash(stash_ref)
+
+        elif command == 'stash-list':
+            sync.list_stashes()
+
         elif command == 'help':
             print('''
 ╔════════════════════════════════════════════════════════╗
@@ -217,6 +279,9 @@ Commands:
   create <branch> [base]    Create new branch with inherited chat
   status                    Show sync status and branch info
   auto                      Auto-handler (used by Git hooks)
+  stash-save [name]         Save chat context with stash
+  stash-restore [ref]       Restore chat context from stash
+  stash-list                List all stash contexts
   help                      Show this help
 
 Examples:
@@ -224,6 +289,9 @@ Examples:
   python3 src/git_sync.py switch feature-auth
   python3 src/git_sync.py create feature-new
   python3 src/git_sync.py status
+  python3 src/git_sync.py stash-save "my-work"
+  python3 src/git_sync.py stash-restore
+  python3 src/git_sync.py stash-list
 
 How It Works:
   1. Each Git branch has its own Claude Code chat session

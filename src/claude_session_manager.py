@@ -258,3 +258,101 @@ class ClaudeSessionManager:
         except Exception as e:
             print(f"Error initializing branch: {e}")
             return False
+
+    def save_stash_context(self, stash_name: Optional[str] = None) -> bool:
+        """Save chat context when creating a stash"""
+        try:
+            branch = self.get_current_branch()
+            session_id = self.get_current_session_id()
+
+            if not session_id:
+                return False
+
+            session_file = self.get_session_file(session_id)
+            if not session_file:
+                return False
+
+            # Create stash reference
+            stash_ref = stash_name or f"stash-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+            stash_file = self.sync_dir / 'stashes' / f"{branch}-{stash_ref}.jsonl"
+            stash_file.parent.mkdir(exist_ok=True)
+
+            # Backup current session
+            shutil.copy2(session_file, stash_file)
+
+            # Count messages
+            with open(stash_file, 'r') as f:
+                message_count = sum(1 for line in f if line.strip())
+
+            # Update metadata
+            metadata = self.load_metadata()
+            if 'stashes' not in metadata:
+                metadata['stashes'] = {}
+
+            metadata['stashes'][stash_ref] = {
+                'branch': branch,
+                'backupFile': str(stash_file),
+                'messageCount': message_count,
+                'created': datetime.now().isoformat(),
+                'sessionId': session_id
+            }
+            self.save_metadata(metadata)
+
+            print(f"✓ Saved chat context for stash: {stash_ref}")
+            return True
+
+        except Exception as e:
+            print(f"Error saving stash context: {e}")
+            return False
+
+    def restore_stash_context(self, stash_ref: Optional[str] = None) -> bool:
+        """Restore chat context when popping/applying a stash"""
+        try:
+            metadata = self.load_metadata()
+            stashes = metadata.get('stashes', {})
+
+            if not stashes:
+                return False
+
+            # If no stash specified, use most recent
+            if not stash_ref:
+                sorted_stashes = sorted(stashes.items(),
+                                      key=lambda x: x[1].get('created', ''),
+                                      reverse=True)
+                if not sorted_stashes:
+                    return False
+                stash_ref, stash_info = sorted_stashes[0]
+            else:
+                stash_info = stashes.get(stash_ref)
+                if not stash_info:
+                    print(f"Stash not found: {stash_ref}")
+                    return False
+
+            # Get current session
+            session_id = self.get_current_session_id()
+            if not session_id:
+                return False
+
+            session_file = self.get_session_file(session_id)
+            if not session_file:
+                return False
+
+            # Restore from stash backup
+            stash_file = Path(stash_info['backupFile'])
+            if stash_file.exists():
+                shutil.copy2(stash_file, session_file)
+                print(f"✓ Restored chat context from stash: {stash_ref}")
+                print(f"   Messages: {stash_info.get('messageCount', 0)}")
+                return True
+            else:
+                print(f"Stash backup not found: {stash_file}")
+                return False
+
+        except Exception as e:
+            print(f"Error restoring stash context: {e}")
+            return False
+
+    def list_stashes(self) -> Dict[str, Dict]:
+        """List all saved stash contexts"""
+        metadata = self.load_metadata()
+        return metadata.get('stashes', {})

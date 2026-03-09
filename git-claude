@@ -163,6 +163,81 @@ case "$GIT_CMD" in
         exit $GIT_EXIT_CODE
         ;;
 
+    stash)
+        # Handle stash operations
+        sync_script=$(find_sync_script)
+        STASH_CMD="$1"
+        shift
+
+        case "$STASH_CMD" in
+            push|save)
+                # Save chat context before stashing
+                if [ -n "$sync_script" ]; then
+                    # Extract stash message if provided
+                    STASH_MSG=""
+                    PARSE_NEXT=false
+                    for arg in "$@"; do
+                        if [ "$PARSE_NEXT" = true ]; then
+                            STASH_MSG="$arg"
+                            break
+                        fi
+                        if [[ "$arg" == "-m" ]] || [[ "$arg" == "--message" ]]; then
+                            PARSE_NEXT=true
+                        fi
+                    done
+
+                    if [ -n "$STASH_MSG" ]; then
+                        python3 "$sync_script" "stash-save" "$STASH_MSG" 2>/dev/null
+                    else
+                        python3 "$sync_script" "stash-save" 2>/dev/null
+                    fi
+                fi
+
+                # Run git stash
+                git stash "$STASH_CMD" "$@"
+                GIT_EXIT_CODE=$?
+
+                if [ $GIT_EXIT_CODE -eq 0 ]; then
+                    echo -e "${GREEN}💾 Chat context saved with stash${NC}"
+                fi
+
+                exit $GIT_EXIT_CODE
+                ;;
+
+            pop|apply)
+                # Run git stash first
+                git stash "$STASH_CMD" "$@"
+                GIT_EXIT_CODE=$?
+
+                # Restore chat context after successful pop/apply
+                if [ $GIT_EXIT_CODE -eq 0 ] && [ -n "$sync_script" ]; then
+                    python3 "$sync_script" "stash-restore" 2>/dev/null
+                    echo -e "${GREEN}📚 Chat context restored from stash${NC}"
+                fi
+
+                exit $GIT_EXIT_CODE
+                ;;
+
+            list)
+                # Run git stash list
+                git stash list "$@"
+
+                # Show chat stash contexts too
+                if [ -n "$sync_script" ]; then
+                    echo ""
+                    echo -e "${BLUE}═══ Claude Chat Stashes ═══${NC}"
+                    python3 "$sync_script" "stash-list" 2>/dev/null
+                fi
+                ;;
+
+            *)
+                # Other stash commands - pass through
+                git stash "$STASH_CMD" "$@"
+                exit $?
+                ;;
+        esac
+        ;;
+
     *)
         # All other git commands - just pass through
         git "$GIT_CMD" "$@"
