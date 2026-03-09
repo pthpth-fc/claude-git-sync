@@ -8,11 +8,12 @@ Just use Git normally. Your chats sync automatically. No manual commands needed.
 git checkout feature-auth
 💬 Chat synced to: feature-auth
 
+git merge feature-payments
+🔀 Merging chat contexts...
+✓ Chat contexts merged
+
 git stash push -m "work in progress"
 💾 Chat context saved with stash
-
-git stash pop
-📚 Chat context restored from stash
 ```
 
 ---
@@ -22,7 +23,8 @@ git stash pop
 - ✅ **Each Git branch has its own chat history**
 - ✅ **Switching branches switches your chat automatically**
 - ✅ **Child branches inherit parent chat context**
-- ✅ **Git stash saves/restores chat context** ⭐ NEW!
+- ✅ **Git stash saves/restores chat context** ⭐
+- ✅ **Git merge combines chat contexts** ⭐ NEW!
 - ✅ **All your Git commands work exactly the same**
 - ✅ **No manual commands - completely transparent**
 
@@ -139,12 +141,15 @@ claude-git-sync/
 ├── hooks/
 │   ├── post-checkout            # Auto-sync on branch switch
 │   ├── post-commit              # Auto-save after commit
+│   ├── post-merge               # Auto-merge chats ⭐
 │   └── prepare-commit-msg       # Pre-commit sync
 ├── README.md                     # This file
 ├── INSTALL.md                    # Detailed installation
 ├── QUICKSTART.md                 # 5-minute guide
 ├── STASH-GUIDE.md                # Git stash integration ⭐
-└── STASH-SUMMARY.md              # Stash quick reference
+├── STASH-SUMMARY.md              # Stash quick reference
+├── MERGE-GUIDE.md                # Git merge integration ⭐
+└── COMPLETE-GUIDE.md             # Everything in one place
 ```
 
 ---
