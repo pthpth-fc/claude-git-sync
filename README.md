@@ -1,313 +1,179 @@
-# Claude-Git Sync
+# Claude Git Sync
 
-**Automatic synchronization between Git branches and Claude Code chat sessions.**
+Automatically sync Claude Code chat sessions with Git branches. Each branch gets its own chat history with intelligent merging, search, and conflict resolution.
 
-Just use Git normally. Your chats sync automatically. No manual commands needed.
+## Features
 
-```bash
-git checkout feature-auth
-💬 Chat synced to: feature-auth
+### Core
+- 🔄 **Auto Branch Sync** - Chat automatically switches with Git branches
+- 🌳 **Hierarchical Inheritance** - Child branches inherit parent context
+- 🔀 **Smart Merging** - Merge chat histories with configurable strategies
+- 💾 **Stash Support** - Save/restore chat with Git stashes
 
-git merge feature-payments
-🔀 Merging chat contexts...
-✓ Chat contexts merged
-
-git stash push -m "work in progress"
-💾 Chat context saved with stash
-```
-
----
-
-## What It Does
-
-- ✅ **Each Git branch has its own chat history**
-- ✅ **Switching branches switches your chat automatically**
-- ✅ **Child branches inherit parent chat context**
-- ✅ **Git stash saves/restores chat context** ⭐
-- ✅ **Git merge combines chat contexts** ⭐ NEW!
-- ✅ **All your Git commands work exactly the same**
-- ✅ **No manual commands - completely transparent**
-
----
+### Advanced
+- ⚙️ **Configuration** - Global and local settings
+- 🗜️ **Optimization** - 93% compression, deduplication, indexing
+- 🔄 **Rebase Support** - Automatic backups
+- 🏷️ **Tag Snapshots** - Save/restore at release points
+- 🔍 **History & Search** - Timeline viewer, full-text search
+- 🔥 **Conflict Helper** - Context during merge conflicts
+- 📁 **Multi-Project** - Manage multiple repositories
+- 🎨 **VS Code Extension** - Full IDE integration
 
 ## Quick Start
 
-### Install in 30 seconds:
-
 ```bash
-cd your-project
-cp -r ~/Desktop/claude-git-sync/src .
-cp -r ~/Desktop/claude-git-sync/hooks .
+git clone https://github.com/yourusername/claude-git-sync.git
+cd claude-git-sync
 python3 src/setup_integration.py
 ```
 
-Done! Now use Git normally - chat syncing is automatic.
-
-### Optional: Add wrapper for better feedback
-
+Optional wrapper for better CLI experience:
 ```bash
-bash ~/Desktop/claude-git-sync/install-git-wrapper.sh
+./install-git-wrapper.sh
 ```
 
-Choose option 1, add to shell config, reload.
+## Usage
 
----
+### Automatic (Recommended)
+Just use Git normally - hooks handle everything:
+```bash
+git checkout feature-auth   # → Chat switches automatically
+git commit -m "Add login"   # → Chat saves automatically
+git merge feature-payments  # → Chats merge automatically
+```
+
+### Manual Commands
+```bash
+python3 src/git_sync.py save     # Save current chat
+python3 src/git_sync.py status   # Show sync status
+python3 src/git_sync.py help     # Full command list
+```
+
+### With git-claude Wrapper
+```bash
+git-claude history               # View timeline
+git-claude search "auth"         # Search messages
+git-claude conflicts             # Conflict help
+git-claude vacuum --full         # Optimize storage
+git-claude stats                 # Statistics
+```
+
+## Key Commands
+
+```bash
+# Configuration
+git-claude config                        # Show all settings
+git-claude config set merge.strategy append
+
+# History & Search
+git-claude history main --limit 20       # Timeline
+git-claude search "pattern" --regex      # Search
+git-claude diff-branches main feature    # Compare
+git-claude stats                         # Statistics
+
+# Storage
+git-claude storage                       # Usage stats
+git-claude vacuum                        # Compress
+git-claude vacuum --full                 # Full optimization
+
+# Tags
+git-claude tag v1.0 "Release"           # Save snapshot
+git-claude tag-list                      # List snapshots
+git-claude tag-restore v1.0              # Restore
+
+# Cleanup
+git-claude cleanup --archive             # Archive orphaned
+git-claude list-archived                 # List archives
+git-claude prune --days 30               # Remove old
+
+# Projects
+git-claude projects                      # List all
+git-claude project add /path/to/repo     # Register
+
+# Conflicts
+git-claude conflicts                     # Show help
+```
 
 ## How It Works
 
-**Without you doing anything:**
+1. **Git Hooks** - Trigger on checkout, commit, merge, rebase
+2. **Session Storage** - Backups in `.claude-git-sync/sessions/`
+3. **Metadata Tracking** - Branch info in `metadata.json`
+4. **Compression** - Auto-compress old/large sessions
+5. **Inheritance** - Child branches inherit parent chat
 
-1. You: `git checkout feature-auth`
-2. Git hook: detects branch switch
-3. System: backs up current chat, restores feature-auth chat
-4. Claude Code: sees feature-auth conversation history
-5. You: continue conversation from where you left off
+## Directory Structure
 
-**Technical:**
-- Git hooks (`post-checkout`, `post-commit`) trigger on Git operations
-- Python script backs up/restores Claude Code's `.jsonl` session files
-- Sessions stored in `.claude-git-sync/sessions/{branch}.jsonl`
-- Hierarchical inheritance: child branches inherit parent chat context
+```
+.claude-git-sync/
+├── sessions/           # Branch sessions (.jsonl, .jsonl.gz)
+├── archived-sessions/  # Archived branches
+├── rebase-backups/     # Pre-rebase backups
+├── tags/              # Tag snapshots
+├── config.json        # Local configuration
+└── metadata.json      # Branch tracking
+```
 
----
-
-## Example Workflow
+## Configuration
 
 ```bash
-# Start on main, chat with Claude about architecture
-$ git branch
-* main
+# Enable compression
+git-claude config set compression.enabled true
 
-$ # Chat with Claude about general architecture...
+# Set merge strategy (append/keep/replace)
+git-claude config set merge.strategy append
 
-# Create feature branch
-$ git checkout -b feature-authentication
-
-💬 Chat synced to: feature-authentication
-📚 Inherited 50 messages from main
-
-$ # Chat with Claude about auth implementation...
-$ # (Claude has context from main + your new auth discussion)
-
-# Switch to different feature
-$ git checkout -b feature-payments
-
-💬 Chat synced to: feature-payments
-📚 Inherited 50 messages from main
-
-$ # Chat about payments (doesn't see auth work)
-
-# Go back to auth branch
-$ git checkout feature-authentication
-
-💬 Chat synced to: feature-authentication
-✓ Restored 75 messages
-
-$ # Auth conversation is exactly as you left it!
-
-# Back to main
-$ git checkout main
-
-💬 Chat synced to: main
-✓ Restored 50 messages
-
-$ # Main branch chat - no feature work visible
+# Archive old branches
+git-claude config set archive.enabled true
+git-claude config set archive.maxBranchAgeDays 90
 ```
 
----
+## VS Code Extension
 
-## Installation Methods
+Full IDE integration with:
+- Branch tree view in SCM panel
+- Clickable status bar indicator
+- WebView panels for history/conflicts
+- Auto-sync on branch changes
 
-| Method | Description | Use Case |
-|--------|-------------|----------|
-| **Hooks Only** | Git hooks do everything | Default - already works! |
-| **Shell Function** | Wrap `git` command | Better feedback messages |
-| **git-claude Binary** | Drop-in replacement | Share with team |
-
-See [INSTALL.md](INSTALL.md) for detailed instructions.
-
----
-
-## Files
-
-```
-claude-git-sync/
-├── git-claude                    # Git wrapper binary
-├── install-git-wrapper.sh        # Interactive installer
-├── src/
-│   ├── git_sync.py              # Main sync engine
-│   ├── claude_session_manager.py # Session backup/restore
-│   └── setup_integration.py     # One-command setup
-├── hooks/
-│   ├── post-checkout            # Auto-sync on branch switch
-│   ├── post-commit              # Auto-save after commit
-│   ├── post-merge               # Auto-merge chats ⭐
-│   └── prepare-commit-msg       # Pre-commit sync
-├── README.md                     # This file
-├── INSTALL.md                    # Detailed installation
-├── QUICKSTART.md                 # 5-minute guide
-├── STASH-GUIDE.md                # Git stash integration ⭐
-├── STASH-SUMMARY.md              # Stash quick reference
-├── MERGE-GUIDE.md                # Git merge integration ⭐
-└── COMPLETE-GUIDE.md             # Everything in one place
-```
-
----
-
-## Commands (if needed)
-
-You don't normally need these - hooks handle everything!
-
-But if you want manual control:
-
+**Install:**
 ```bash
-# Check sync status
-python3 src/git_sync.py status
-
-# Manual save
-python3 src/git_sync.py save
-
-# Manual branch switch
-python3 src/git_sync.py switch <branch>
-
-# Create branch with inheritance
-python3 src/git_sync.py create <new-branch>
+cd vscode-extension
+npm install && npm run compile
+code --install-extension $(npm run package | grep -o '.*\.vsix')
 ```
 
----
+## Documentation
 
-## Real Integration
+- [INSTALL.md](INSTALL.md) - Detailed installation
+- [MERGE-GUIDE.md](MERGE-GUIDE.md) - Merge strategies
+- [STASH-GUIDE.md](STASH-GUIDE.md) - Stash workflows
 
-This isn't a toy - it works with real Claude Code session files:
+## Requirements
 
-- **Location**: `~/.claude/projects/{project}/{sessionId}.jsonl`
-- **Format**: JSON Lines - one message per line
-- **Content**: Full conversation history (messages, tools, context)
-- **Backup**: `.claude-git-sync/sessions/{branch}.jsonl`
-- **Restore**: Copies backup over active session
-
-When you switch branches, Claude Code immediately sees the new conversation history. No restart needed.
-
----
-
-## Inheritance Example
-
-```
-main (50 messages about project setup)
-  ↓
-  ├── feature-auth (inherits 50 + adds 25 auth msgs = 75 total)
-  │     ↓
-  │     └── bugfix-login (inherits all 75 + adds 10 = 85 total)
-  │
-  └── feature-api (inherits 50 from main + adds 30 API msgs = 80 total)
-```
-
-Just like Git branches inherit commits, chat sessions inherit messages.
-
----
-
-## Already Installed?
-
-**In `/mnt/c/Users/dev` - already working!**
-
-Just use:
-- `git checkout <branch>` → auto-syncs
-- `git commit` → auto-saves
-
-To add wrapper for better feedback:
-```bash
-bash ~/Desktop/claude-git-sync/install-git-wrapper.sh
-```
-
----
+- Python 3.7+
+- Git 2.0+
+- Claude Code CLI
+- VS Code 1.80+ (for extension)
 
 ## Troubleshooting
 
 **Not syncing?**
 ```bash
-ls -la .git/hooks/post-checkout   # Should exist
-python3 src/git_sync.py status     # Check status
+python3 src/git_sync.py status
+ls -la .git/hooks/post-*
 ```
 
-**Want to see what's happening?**
+**Large storage?**
 ```bash
-bash install-git-wrapper.sh  # Install wrapper for feedback
+git-claude vacuum --full
 ```
-
-**Check backups:**
-```bash
-ls -la .claude-git-sync/sessions/
-cat .claude-git-sync/metadata.json
-```
-
----
-
-## Uninstall
-
-```bash
-rm .git/hooks/post-checkout .git/hooks/post-commit
-rm -rf .claude-git-sync src hooks
-```
-
----
-
-## Philosophy
-
-**Git tracks your code across branches.**
-**Claude-Git Sync tracks your conversations across branches.**
-
-Each branch has its own development context - both code AND conversation. This tool keeps them synchronized.
-
----
-
-## Technical Details
-
-### Session Discovery
-Finds Claude Code sessions in `~/.claude/projects/` by:
-1. Converting project path to directory name (`/mnt/c/Users/dev` → `-mnt-c-Users-dev`)
-2. Reading `sessions-index.json` for active session ID
-3. Locating transcript file `{sessionId}.jsonl`
-
-### Backup Process
-```python
-# On branch switch FROM main TO feature:
-1. Copy ~/.claude/projects/.../current-session.jsonl
-   → .claude-git-sync/sessions/main.jsonl
-
-2. Copy .claude-git-sync/sessions/feature.jsonl
-   → ~/.claude/projects/.../current-session.jsonl
-
-3. Update metadata.json with counts and timestamps
-```
-
-### Inheritance
-When creating a new branch:
-```python
-# feature-auth created from main:
-1. Copy .claude-git-sync/sessions/main.jsonl
-   → .claude-git-sync/sessions/feature-auth.jsonl
-
-2. Record parent: metadata["branches"]["feature-auth"]["parentBranch"] = "main"
-```
-
----
-
-## Contributing
-
-Found a bug? Want a feature?
-
-Open an issue or PR at the repository.
-
----
 
 ## License
 
 MIT
 
----
+## Contributing
 
-## Credits
-
-Built for developers who wanted Git and Claude Code to work together seamlessly.
-
-**No more losing conversation context when switching branches!**
+Issues and PRs welcome!
