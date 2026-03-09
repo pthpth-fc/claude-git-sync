@@ -12,6 +12,9 @@ from datetime import datetime
 from typing import Optional, Dict, List
 import subprocess
 
+from config_manager import ConfigManager
+from storage_optimizer import StorageOptimizer
+
 
 class ClaudeSessionManager:
     def __init__(self, repo_root: Optional[str] = None):
@@ -22,6 +25,12 @@ class ClaudeSessionManager:
         self.metadata_file = self.sync_dir / 'metadata.json'
 
         self.ensure_directories()
+
+        # Initialize configuration manager
+        self.config = ConfigManager(self.sync_dir)
+
+        # Initialize storage optimizer
+        self.storage = StorageOptimizer(self.sync_dir, self.config)
 
     def find_git_root(self) -> str:
         """Find Git repository root"""
@@ -40,6 +49,11 @@ class ClaudeSessionManager:
         """Create necessary directories"""
         self.sync_dir.mkdir(exist_ok=True)
         self.branch_sessions_dir.mkdir(exist_ok=True)
+
+        # Create additional directories for new features
+        (self.sync_dir / 'archived-sessions').mkdir(exist_ok=True)
+        (self.sync_dir / 'rebase-backups').mkdir(exist_ok=True)
+        (self.sync_dir / 'tags').mkdir(exist_ok=True)
 
     def get_current_branch(self) -> str:
         """Get current Git branch"""
@@ -356,3 +370,452 @@ class ClaudeSessionManager:
         """List all saved stash contexts"""
         metadata = self.load_metadata()
         return metadata.get('stashes', {})
+
+    def save_pre_rebase_backup(self, branch: str, base_commit: str) -> bool:
+        """Save backup before rebase operation
+
+        Args:
+            branch: Current branch name
+            base_commit: Base commit SHA for rebase
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            session_id = self.get_current_session_id()
+            if not session_id:
+                return False
+
+            session_file = self.get_session_file(session_id)
+            if not session_file:
+                return False
+
+            # Get current commit SHA
+            result = subprocess.run(
+                ['git', 'rev-parse', 'HEAD'],
+                capture_output=True,
+                text=True,
+                check=True,
+                cwd=self.repo_root
+            )
+            current_sha = result.stdout.strip()[:7]
+
+            # Create backup filename
+            timestamp = datetime.now().strftime('%Y%m%d-%H%M%S')
+            backup_filename = f"{branch}_{current_sha}_before_rebase_onto_{base_commit[:7]}_{timestamp}.jsonl"
+            backup_dir = self.sync_dir / 'rebase-backups'
+            backup_dir.mkdir(exist_ok=True)
+            backup_file = backup_dir / backup_filename
+
+            # Copy current session
+            shutil.copy2(session_file, backup_file)
+
+            # Count messages
+            with open(backup_file, 'r') as f:
+                message_count = sum(1 for line in f if line.strip())
+
+            # Update metadata
+            metadata = self.load_metadata()
+            if 'rebaseBackups' not in metadata:
+                metadata['rebaseBackups'] = []
+
+            metadata['rebaseBackups'].append({
+                'branch': branch,
+                'originalSHA': current_sha,
+                'baseCommit': base_commit[:7],
+                'backupFile': str(backup_file),
+                'timestamp': datetime.now().isoformat(),
+                'messageCount': message_count
+            })
+            self.save_metadata(metadata)
+
+            print(f"✓ Saved pre-rebase backup: {message_count} messages")
+            return True
+
+        except Exception as e:
+            print(f"Error saving pre-rebase backup: {e}")
+            return False
+
+    def handle_rebase_complete(self, commit_mappings: str) -> bool:
+        """Handle post-rebase cleanup and marker
+
+        Args:
+            commit_mappings: Commit mapping from stdin (old_sha new_sha per line)
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            branch = self.get_current_branch()
+            session_id = self.get_current_session_id()
+
+            if not session_id:
+                return False
+
+            session_file = self.get_session_file(session_id)
+            if not session_file:
+                return False
+
+            # Parse commit mappings
+            mappings = []
+            for line in commit_mappings.strip().split('\n'):
+                if line.strip():
+                    parts = line.split()
+                    if len(parts) >= 2:
+                        mappings.append({
+                            'old': parts[0][:7],
+                            'new': parts[1][:7]
+                        })
+
+            # Add rebase marker to session
+            rebase_marker = {
+                'role': 'system',
+                'content': f'[Rebase completed on {branch}]',
+                'timestamp': datetime.now().isoformat(),
+                'rebase': {
+                    'branch': branch,
+                    'commitMappings': mappings,
+                    'timestamp': datetime.now().isoformat()
+                }
+            }
+
+            # Append marker to session file
+            with open(session_file, 'a') as f:
+                f.write(json.dumps(rebase_marker) + '\n')
+
+            # Update metadata
+            metadata = self.load_metadata()
+            if branch in metadata.get('branches', {}):
+                metadata['branches'][branch]['lastRebase'] = datetime.now().isoformat()
+                self.save_metadata(metadata)
+
+            return True
+
+        except Exception as e:
+            print(f"Error handling rebase completion: {e}")
+            return False
+
+    def archive_branch_session(self, branch: str) -> bool:
+        """Archive a branch session to archived-sessions directory
+
+        Args:
+            branch: Branch name to archive
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Get session path (handles both compressed and uncompressed)
+            session_path = self.storage.get_session_path(branch)
+
+            if not session_path:
+                print(f"Session not found for branch: {branch}")
+                return False
+
+            # Create archive filename with timestamp
+            timestamp = datetime.now().strftime('%Y%m%d-%H%M%S')
+            archive_filename = f"{branch}_{timestamp}{session_path.suffix}"
+            archive_dir = self.sync_dir / 'archived-sessions'
+            archive_dir.mkdir(exist_ok=True)
+            archive_file = archive_dir / archive_filename
+
+            # Move session to archive
+            shutil.move(str(session_path), str(archive_file))
+
+            # Update metadata
+            metadata = self.load_metadata()
+
+            # Remove from active branches
+            branch_info = metadata.get('branches', {}).pop(branch, None)
+
+            # Add to archived branches
+            if 'archivedBranches' not in metadata:
+                metadata['archivedBranches'] = {}
+
+            metadata['archivedBranches'][branch] = {
+                'archivedDate': datetime.now().isoformat(),
+                'archiveFile': str(archive_file),
+                'originalInfo': branch_info
+            }
+
+            self.save_metadata(metadata)
+
+            print(f"✓ Archived session for branch: {branch}")
+            return True
+
+        except Exception as e:
+            print(f"Error archiving branch session: {e}")
+            return False
+
+    def get_orphaned_branches(self) -> List[str]:
+        """Find branches in metadata that don't exist in Git
+
+        Returns:
+            List of orphaned branch names
+        """
+        try:
+            # Get all branches from Git
+            result = subprocess.run(
+                ['git', 'branch', '--format=%(refname:short)'],
+                capture_output=True,
+                text=True,
+                check=True,
+                cwd=self.repo_root
+            )
+            git_branches = set(result.stdout.strip().split('\n'))
+
+            # Get all branches from metadata
+            metadata = self.load_metadata()
+            metadata_branches = set(metadata.get('branches', {}).keys())
+
+            # Find orphaned branches
+            orphaned = metadata_branches - git_branches
+
+            return list(orphaned)
+
+        except Exception as e:
+            print(f"Error finding orphaned branches: {e}")
+            return []
+
+    def prune_old_branches(self, days: int = 30, dry_run: bool = False) -> Dict:
+        """Remove archived branches older than specified days
+
+        Args:
+            days: Maximum age in days
+            dry_run: If True, only show what would be deleted
+
+        Returns:
+            Dictionary with pruning results
+        """
+        try:
+            results = {
+                'deleted': [],
+                'would_delete': [],
+                'errors': [],
+                'space_freed': 0
+            }
+
+            metadata = self.load_metadata()
+            archived_branches = metadata.get('archivedBranches', {})
+
+            if not archived_branches:
+                print("No archived branches found")
+                return results
+
+            cutoff_date = datetime.now() - timedelta(days=days)
+
+            for branch, info in list(archived_branches.items()):
+                archive_date = datetime.fromisoformat(info['archivedDate'])
+
+                if archive_date < cutoff_date:
+                    archive_file = Path(info['archiveFile'])
+                    age_days = (datetime.now() - archive_date).days
+
+                    if dry_run:
+                        size = archive_file.stat().st_size if archive_file.exists() else 0
+                        results['would_delete'].append({
+                            'branch': branch,
+                            'age_days': age_days,
+                            'size_bytes': size
+                        })
+                    else:
+                        try:
+                            size = archive_file.stat().st_size if archive_file.exists() else 0
+                            if archive_file.exists():
+                                archive_file.unlink()
+
+                            # Remove from metadata
+                            del archived_branches[branch]
+
+                            results['deleted'].append(branch)
+                            results['space_freed'] += size
+
+                        except Exception as e:
+                            results['errors'].append(f"Error deleting {branch}: {e}")
+
+            # Save updated metadata if not dry run
+            if not dry_run and results['deleted']:
+                metadata['archivedBranches'] = archived_branches
+                self.save_metadata(metadata)
+
+            return results
+
+        except Exception as e:
+            print(f"Error pruning old branches: {e}")
+            return {'deleted': [], 'would_delete': [], 'errors': [str(e)], 'space_freed': 0}
+
+    def list_archived_branches(self) -> Dict[str, Dict]:
+        """List all archived branches
+
+        Returns:
+            Dictionary of archived branch information
+        """
+        metadata = self.load_metadata()
+        return metadata.get('archivedBranches', {})
+
+    def save_tag_snapshot(self, tag_name: str, description: Optional[str] = None) -> bool:
+        """Save a snapshot of current session at a Git tag
+
+        Args:
+            tag_name: Git tag name
+            description: Optional description for the snapshot
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Verify tag exists
+            result = subprocess.run(
+                ['git', 'rev-parse', '--verify', f'refs/tags/{tag_name}'],
+                capture_output=True,
+                text=True,
+                cwd=self.repo_root
+            )
+
+            if result.returncode != 0:
+                print(f"Git tag not found: {tag_name}")
+                return False
+
+            # Get tag commit SHA
+            commit_sha = result.stdout.strip()[:7]
+
+            # Get current branch
+            branch = self.get_current_branch()
+
+            # Get current session
+            session_id = self.get_current_session_id()
+            if not session_id:
+                print("No active session found")
+                return False
+
+            session_file = self.get_session_file(session_id)
+            if not session_file:
+                print("Session file not found")
+                return False
+
+            # Create safe filename from tag name
+            safe_tag_name = tag_name.replace('/', '-').replace(' ', '_')
+            tag_file = self.sync_dir / 'tags' / f'{safe_tag_name}.jsonl'
+            tag_file.parent.mkdir(exist_ok=True)
+
+            # Copy session to tag snapshot
+            shutil.copy2(session_file, tag_file)
+
+            # Count messages
+            message_count = self.storage.count_messages(safe_tag_name.replace('.jsonl', ''))
+
+            # Update metadata
+            metadata = self.load_metadata()
+            if 'tags' not in metadata:
+                metadata['tags'] = {}
+
+            metadata['tags'][tag_name] = {
+                'branch': branch,
+                'commitSHA': commit_sha,
+                'tagFile': str(tag_file),
+                'messageCount': message_count,
+                'created': datetime.now().isoformat(),
+                'description': description
+            }
+            self.save_metadata(metadata)
+
+            print(f"✓ Saved tag snapshot: {tag_name} ({message_count} messages)")
+            if description:
+                print(f"  Description: {description}")
+
+            return True
+
+        except Exception as e:
+            print(f"Error saving tag snapshot: {e}")
+            return False
+
+    def restore_tag_snapshot(self, tag_name: str) -> bool:
+        """Restore session from a tag snapshot
+
+        Args:
+            tag_name: Tag name to restore from
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            metadata = self.load_metadata()
+            tags = metadata.get('tags', {})
+
+            if tag_name not in tags:
+                print(f"Tag snapshot not found: {tag_name}")
+                return False
+
+            tag_info = tags[tag_name]
+            tag_file = Path(tag_info['tagFile'])
+
+            if not tag_file.exists():
+                print(f"Tag snapshot file not found: {tag_file}")
+                return False
+
+            # Get current session
+            session_id = self.get_current_session_id()
+            if not session_id:
+                print("No active session found")
+                return False
+
+            session_file = self.get_session_file(session_id)
+            if not session_file:
+                print("Could not find current session file")
+                return False
+
+            # Restore from tag snapshot
+            shutil.copy2(tag_file, session_file)
+
+            message_count = tag_info['messageCount']
+            print(f"✓ Restored {message_count} messages from tag: {tag_name}")
+
+            return True
+
+        except Exception as e:
+            print(f"Error restoring tag snapshot: {e}")
+            return False
+
+    def list_tag_snapshots(self) -> Dict[str, Dict]:
+        """List all tag snapshots
+
+        Returns:
+            Dictionary of tag snapshot information
+        """
+        metadata = self.load_metadata()
+        return metadata.get('tags', {})
+
+    def delete_tag_snapshot(self, tag_name: str) -> bool:
+        """Delete a tag snapshot
+
+        Args:
+            tag_name: Tag name to delete
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            metadata = self.load_metadata()
+            tags = metadata.get('tags', {})
+
+            if tag_name not in tags:
+                print(f"Tag snapshot not found: {tag_name}")
+                return False
+
+            tag_info = tags[tag_name]
+            tag_file = Path(tag_info['tagFile'])
+
+            # Delete file if it exists
+            if tag_file.exists():
+                tag_file.unlink()
+
+            # Remove from metadata
+            del tags[tag_name]
+            self.save_metadata(metadata)
+
+            print(f"✓ Deleted tag snapshot: {tag_name}")
+            return True
+
+        except Exception as e:
+            print(f"Error deleting tag snapshot: {e}")
+            return False

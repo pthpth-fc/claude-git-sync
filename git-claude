@@ -266,6 +266,18 @@ case "$GIT_CMD" in
         esac
         ;;
 
+    config)
+        # Configuration management
+        sync_script=$(find_sync_script)
+        if [ -n "$sync_script" ]; then
+            python3 "$sync_script" "config" "$@"
+            exit $?
+        else
+            echo -e "${RED}Error: Could not find git_sync.py${NC}"
+            exit 1
+        fi
+        ;;
+
     *)
         # All other git commands - just pass through
         git "$GIT_CMD" "$@"
