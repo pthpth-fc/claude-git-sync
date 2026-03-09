@@ -1,0 +1,26 @@
+{
+  "merge": {
+    "strategy": "append",
+    "autoBackup": true
+  },
+  "archive": {
+    "enabled": false,
+    "maxBranchAgeDays": 90
+  },
+  "compression": {
+    "enabled": false,
+    "threshold": 1000
+  },
+  "search": {
+    "indexEnabled": false
+  },
+  "output": {
+    "verbose": false,
+    "useColor": true,
+    "pageSize": 20
+  },
+  "history": {
+    "showTimestamps": true,
+    "maxPreviewLength": 100
+  }
+}

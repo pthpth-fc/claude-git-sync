@@ -1,0 +1,129 @@
+{
+  "name": "claude-git-sync",
+  "displayName": "Claude Git Sync",
+  "description": "Sync Claude Code chat sessions with Git branches",
+  "version": "1.0.0",
+  "publisher": "claude-git-sync",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Other",
+    "SCM Providers"
+  ],
+  "keywords": [
+    "claude",
+    "git",
+    "chat",
+    "sync",
+    "ai"
+  ],
+  "activationEvents": [
+    "onStartupFinished",
+    "workspaceContains:.claude-git-sync"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "claudeGitSync.syncCurrent",
+        "title": "Claude Git Sync: Save Current Session",
+        "icon": "$(save)"
+      },
+      {
+        "command": "claudeGitSync.switchBranch",
+        "title": "Claude Git Sync: Switch to Branch",
+        "icon": "$(git-branch)"
+      },
+      {
+        "command": "claudeGitSync.showHistory",
+        "title": "Claude Git Sync: Show History",
+        "icon": "$(history)"
+      },
+      {
+        "command": "claudeGitSync.showConflicts",
+        "title": "Claude Git Sync: Show Conflicts",
+        "icon": "$(warning)"
+      },
+      {
+        "command": "claudeGitSync.vacuum",
+        "title": "Claude Git Sync: Optimize Storage",
+        "icon": "$(database)"
+      },
+      {
+        "command": "claudeGitSync.showStatus",
+        "title": "Claude Git Sync: Show Status",
+        "icon": "$(info)"
+      },
+      {
+        "command": "claudeGitSync.refreshBranches",
+        "title": "Claude Git Sync: Refresh Branches",
+        "icon": "$(refresh)"
+      }
+    ],
+    "views": {
+      "scm": [
+        {
+          "id": "claudeGitSyncBranches",
+          "name": "Claude Chat Sessions",
+          "icon": "$(comment-discussion)",
+          "contextualTitle": "Claude Git Sync"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "claudeGitSync.refreshBranches",
+          "when": "view == claudeGitSyncBranches",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "claudeGitSync.switchBranch",
+          "when": "view == claudeGitSyncBranches && viewItem == branchItem",
+          "group": "inline"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Claude Git Sync",
+      "properties": {
+        "claudeGitSync.pythonPath": {
+          "type": "string",
+          "default": "python3",
+          "description": "Path to Python 3 executable"
+        },
+        "claudeGitSync.autoSync": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically sync chat sessions on branch changes"
+        },
+        "claudeGitSync.showStatusBar": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show status bar indicator"
+        },
+        "claudeGitSync.conflictHelperEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable conflict resolution helper"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^18.0.0",
+    "@types/vscode": "^1.80.0",
+    "typescript": "^5.0.0",
+    "vsce": "^2.15.0"
+  },
+  "dependencies": {}
+}
