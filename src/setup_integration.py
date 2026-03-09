@@ -45,7 +45,7 @@ try:
     print("📦 Installing Git hooks...")
     print()
 
-    hooks_to_install = ['post-checkout', 'post-commit']
+    hooks_to_install = ['post-checkout', 'post-commit', 'post-rewrite']
 
     for hook_name in hooks_to_install:
         source = source_hooks_dir / hook_name

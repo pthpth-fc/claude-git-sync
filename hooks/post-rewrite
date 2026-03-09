@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# Post-rewrite hook for Git rebase operations
+# Automatically saves backup before rebase and adds rebase marker to session
+
+# Get the operation type
+OPERATION=$1  # "rebase" or "amend"
+
+# Only handle rebase operations
+if [ "$OPERATION" != "rebase" ]; then
+    exit 0
+fi
+
+# Find the sync script
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
+if [ -z "$REPO_ROOT" ]; then
+    exit 0
+fi
+
+SYNC_SCRIPT="$REPO_ROOT/src/git_sync.py"
+if [ ! -f "$SYNC_SCRIPT" ]; then
+    exit 0
+fi
+
+# Read commit mappings from stdin
+REBASE_MAP=$(cat)
+
+# Call rebase-complete handler
+echo "$REBASE_MAP" | python3 "$SYNC_SCRIPT" rebase-complete 2>/dev/null
+
+exit 0
