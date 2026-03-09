@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# Git post-merge hook
+# Automatically merges chat contexts after successful code merge
+
+SQUASH_MERGE=$1  # 1 if squash merge
+
+# Get repo root
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
+if [ -z "$REPO_ROOT" ]; then
+  exit 0
+fi
+
+# Find sync script
+SYNC_SCRIPT=""
+if [ -f "$REPO_ROOT/src/git_sync.py" ]; then
+  SYNC_SCRIPT="$REPO_ROOT/src/git_sync.py"
+elif [ -f "$HOME/Desktop/claude-git-sync/src/git_sync.py" ]; then
+  SYNC_SCRIPT="$HOME/Desktop/claude-git-sync/src/git_sync.py"
+fi
+
+if [ -z "$SYNC_SCRIPT" ]; then
+  exit 0
+fi
+
+# Get merge info from Git
+MERGE_HEAD=$(git rev-parse MERGE_HEAD 2>/dev/null || echo "")
+CURRENT_BRANCH=$(git branch --show-current)
+
+if [ -n "$MERGE_HEAD" ]; then
+  # Find which branch was merged
+  MERGED_BRANCH=$(git name-rev --name-only "$MERGE_HEAD" 2>/dev/null | sed 's/^remotes\///' | sed 's/^origin\///')
+
+  if [ -n "$MERGED_BRANCH" ]; then
+    echo ""
+    echo "🔀 Merge detected: $MERGED_BRANCH → $CURRENT_BRANCH"
+    echo "📝 Merging chat contexts..."
+    echo ""
+
+    # Run chat merge
+    python3 "$SYNC_SCRIPT" merge "$MERGED_BRANCH" 2>&1
+
+    echo ""
+    echo "✅ Code and chat merged successfully!"
+    echo ""
+  fi
+fi
+
+exit 0

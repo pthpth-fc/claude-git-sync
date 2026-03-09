@@ -12,6 +12,7 @@ from typing import Optional
 sys.path.insert(0, str(Path(__file__).parent))
 
 from claude_session_manager import ClaudeSessionManager
+from merge_manager import MergeManager
 
 
 class GitClaudeSync:
@@ -264,6 +265,13 @@ def main():
         elif command == 'stash-list':
             sync.list_stashes()
 
+        elif command == 'merge':
+            if not args:
+                print('Usage: git-sync merge <source-branch>')
+                sys.exit(1)
+            merger = MergeManager()
+            merger.auto_merge(args[0])
+
         elif command == 'help':
             print('''
 ╔════════════════════════════════════════════════════════╗
@@ -279,6 +287,7 @@ Commands:
   create <branch> [base]    Create new branch with inherited chat
   status                    Show sync status and branch info
   auto                      Auto-handler (used by Git hooks)
+  merge <source-branch>     Merge chat context from source branch
   stash-save [name]         Save chat context with stash
   stash-restore [ref]       Restore chat context from stash
   stash-list                List all stash contexts
@@ -289,6 +298,7 @@ Examples:
   python3 src/git_sync.py switch feature-auth
   python3 src/git_sync.py create feature-new
   python3 src/git_sync.py status
+  python3 src/git_sync.py merge feature-payments
   python3 src/git_sync.py stash-save "my-work"
   python3 src/git_sync.py stash-restore
   python3 src/git_sync.py stash-list

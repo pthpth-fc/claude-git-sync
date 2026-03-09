@@ -163,6 +163,34 @@ case "$GIT_CMD" in
         exit $GIT_EXIT_CODE
         ;;
 
+    merge)
+        # Handle merge operations
+        sync_script=$(find_sync_script)
+
+        # Extract branch name to merge
+        MERGE_BRANCH=""
+        for arg in "$@"; do
+            # Skip flags
+            if [[ ! "$arg" =~ ^- ]]; then
+                MERGE_BRANCH="$arg"
+                break
+            fi
+        done
+
+        # Run git merge
+        git merge "$@"
+        GIT_EXIT_CODE=$?
+
+        if [ $GIT_EXIT_CODE -eq 0 ] && [ -n "$MERGE_BRANCH" ] && [ -n "$sync_script" ]; then
+            # Merge successful, merge chat contexts
+            echo ""
+            python3 "$sync_script" merge "$MERGE_BRANCH"
+            echo ""
+        fi
+
+        exit $GIT_EXIT_CODE
+        ;;
+
     stash)
         # Handle stash operations
         sync_script=$(find_sync_script)
