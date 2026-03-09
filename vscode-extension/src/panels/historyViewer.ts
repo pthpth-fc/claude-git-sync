@@ -58,8 +58,34 @@ export class HistoryViewerPanel {
     }
 
     private async _getHtmlForWebview(): Promise<string> {
-        // In a real implementation, fetch actual history from sessionManager
         const messageCount = await this.sessionManager.getMessageCount(this.branch);
+
+        // Get actual messages
+        let messagesHtml = '';
+        try {
+            const output = await this.sessionManager.runCommand('history', [this.branch, '--limit', '50']);
+
+            // Parse the output to extract messages
+            // This is a simple implementation - could be enhanced
+            messagesHtml = '<div class="messages-list">';
+
+            if (messageCount > 0) {
+                messagesHtml += `<p><strong>Showing last 50 messages (${messageCount} total)</strong></p>`;
+                messagesHtml += '<p>For detailed view with full content, use CLI:</p>';
+                messagesHtml += `<code>git-claude history ${this.branch}</code><br><br>`;
+
+                // Show that messages exist
+                const sessionPath = `${this.sessionManager['workspaceRoot']}/.claude-git-sync/sessions/${this.branch}.jsonl`;
+                messagesHtml += `<div class="info">Session file: ${sessionPath}</div>`;
+                messagesHtml += `<div class="info">Messages available via CLI commands</div>`;
+            } else {
+                messagesHtml += '<p>No messages in this branch yet.</p>';
+            }
+
+            messagesHtml += '</div>';
+        } catch (error) {
+            messagesHtml = `<p>Error loading messages: ${error}</p>`;
+        }
 
         return `<!DOCTYPE html>
         <html lang="en">
@@ -79,19 +105,21 @@ export class HistoryViewerPanel {
                     padding-bottom: 10px;
                     margin-bottom: 20px;
                 }
-                .message {
-                    margin-bottom: 15px;
-                    padding: 10px;
-                    border-left: 3px solid var(--vscode-textLink-foreground);
-                    background-color: var(--vscode-editor-inactiveSelectionBackground);
+                .info {
+                    padding: 8px;
+                    margin: 8px 0;
+                    background-color: var(--vscode-textCodeBlock-background);
+                    border-radius: 4px;
                 }
-                .message-role {
-                    font-weight: bold;
-                    margin-bottom: 5px;
+                code {
+                    background-color: var(--vscode-textCodeBlock-background);
+                    padding: 2px 6px;
+                    border-radius: 3px;
+                    font-family: var(--vscode-editor-font-family);
                 }
-                .user { border-left-color: #4CAF50; }
-                .assistant { border-left-color: #2196F3; }
-                .system { border-left-color: #FF9800; }
+                .messages-list {
+                    line-height: 1.6;
+                }
             </style>
         </head>
         <body>
@@ -99,11 +127,14 @@ export class HistoryViewerPanel {
                 <h1>📜 Chat History: ${this.branch}</h1>
                 <p>Total messages: ${messageCount}</p>
             </div>
-            <div id="messages">
-                <p>Use the Python CLI to view detailed history:</p>
-                <code>python3 src/git_sync.py history ${this.branch}</code>
-                <br><br>
-                <p><em>Full interactive history viewer coming soon!</em></p>
+            ${messagesHtml}
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--vscode-panel-border);">
+                <h3>Available Commands</h3>
+                <ul>
+                    <li><code>git-claude history ${this.branch}</code> - View full timeline</li>
+                    <li><code>git-claude search "pattern"</code> - Search messages</li>
+                    <li><code>git-claude stats</code> - Show statistics</li>
+                </ul>
             </div>
         </body>
         </html>`;
