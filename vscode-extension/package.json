@@ -115,8 +115,8 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "./node_modules/.bin/tsc -p ./",
-    "watch": "./node_modules/.bin/tsc -watch -p ./",
+    "compile": "node ./node_modules/typescript/lib/tsc.js -p ./",
+    "watch": "node ./node_modules/typescript/lib/tsc.js -watch -p ./",
     "package": "echo 'Use development mode instead: Press F5 in VS Code'"
   },
   "devDependencies": {
