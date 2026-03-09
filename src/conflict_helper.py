@@ -317,7 +317,7 @@ class ConflictHelper:
                 try:
                     dt = datetime.fromisoformat(mention.timestamp)
                     time_str = dt.strftime('%m-%d %H:%M')
-                except:
+                except (ValueError, TypeError):
                     time_str = mention.timestamp[:14] if len(mention.timestamp) >= 14 else ''
 
             # Show content preview

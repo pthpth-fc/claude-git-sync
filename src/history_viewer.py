@@ -186,7 +186,7 @@ class HistoryViewer:
                 try:
                     dt = datetime.fromisoformat(timestamp)
                     time_str = dt.strftime('%Y-%m-%d %H:%M:%S')
-                except:
+                except (ValueError, TypeError):
                     time_str = timestamp[:19] if len(timestamp) >= 19 else timestamp
 
             # Truncate content for preview
@@ -227,7 +227,7 @@ class HistoryViewer:
                 try:
                     dt = datetime.fromisoformat(timestamp)
                     time_str = dt.strftime('%m-%d %H:%M')
-                except:
+                except (ValueError, TypeError):
                     time_str = timestamp[:14] if len(timestamp) >= 14 else timestamp
 
             # Truncate preview
@@ -346,7 +346,7 @@ class HistoryViewer:
                 try:
                     dt = datetime.fromisoformat(result.timestamp)
                     time_str = dt.strftime('%Y-%m-%d %H:%M')
-                except:
+                except (ValueError, TypeError):
                     time_str = result.timestamp[:16] if len(result.timestamp) >= 16 else result.timestamp
 
             print(f"\n[{i}] {result.branch} (Message #{result.message_index + 1})")
@@ -526,14 +526,14 @@ class HistoryViewer:
             try:
                 first = datetime.fromisoformat(stats.first_message_date)
                 print(f"\nFirst Message: {first.strftime('%Y-%m-%d %H:%M:%S')}")
-            except:
+            except (ValueError, TypeError):
                 print(f"\nFirst Message: {stats.first_message_date}")
 
         if stats.last_message_date:
             try:
                 last = datetime.fromisoformat(stats.last_message_date)
                 print(f"Last Message: {last.strftime('%Y-%m-%d %H:%M:%S')}")
-            except:
+            except (ValueError, TypeError):
                 print(f"Last Message: {stats.last_message_date}")
 
         print(f"\nStorage Size: {self.storage._format_bytes(stats.storage_bytes)}")

@@ -8,6 +8,7 @@ import sys
 import subprocess
 from pathlib import Path
 from typing import Optional
+from datetime import datetime
 
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -548,8 +549,7 @@ def main():
 
         elif command == 'rebase-complete':
             # Read commit mappings from stdin
-            import sys as sys_module
-            commit_mappings = sys_module.stdin.read()
+            commit_mappings = sys.stdin.read()
             sync.manager.handle_rebase_complete(commit_mappings)
 
         elif command == 'vacuum':

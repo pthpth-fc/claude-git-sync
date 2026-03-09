@@ -607,7 +607,7 @@ class StorageOptimizer:
             try:
                 temp_file.unlink()
                 all_results['cleanup'] += 1
-            except:
+            except OSError:
                 pass
 
         if all_results['cleanup'] > 0:

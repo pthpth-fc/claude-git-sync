@@ -280,7 +280,7 @@ class ProjectManager:
                     dt = datetime.fromisoformat(project.last_accessed)
                     time_str = dt.strftime('%Y-%m-%d %H:%M:%S')
                     print(f"    Last accessed: {time_str}")
-                except:
+                except (ValueError, TypeError):
                     pass
 
         print("\n" + "=" * 70)
@@ -318,7 +318,7 @@ class ProjectManager:
                 dt = datetime.fromisoformat(info['lastAccessed'])
                 time_str = dt.strftime('%Y-%m-%d %H:%M:%S')
                 print(f"  Last accessed: {time_str}")
-            except:
+            except (ValueError, TypeError):
                 pass
 
         # Show configuration
